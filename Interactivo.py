@@ -4,7 +4,7 @@ Ingeniería de Materiales · Grupo 05 · Semestre 2027-1
 
 Ejecutar con:
     pip install -r requirements.txt
-    streamlit run Interactivo.py
+    streamlit run Interactivo.py 
 """
 
 import re
