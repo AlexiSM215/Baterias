@@ -1,0 +1,13 @@
+# Mismo aspecto en Windows, macOS y Linux (aunque el sistema esté en modo oscuro)
+[theme]
+base = "light"
+primaryColor = "#2563eb"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#0f172a"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = false

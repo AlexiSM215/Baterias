@@ -50,7 +50,11 @@ def stat(col, valor, etiqueta):
 # Widgets en tiempo real (HTML + JavaScript dentro de un iframe)
 # --------------------------------------------------------------------------
 CSS = """
-body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#0f172a}
+html,body{overflow-x:hidden;scrollbar-width:thin}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:#0f172a;background:transparent;-webkit-font-smoothing:antialiased}
+button,input{font-family:inherit}
 .wrap{background:#f8fafc;border-radius:16px;padding:14px;border:1px solid #e2e8f0}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
 .kpi{flex:1;min-width:130px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:10px 8px;text-align:center}
@@ -73,6 +77,19 @@ canvas{display:block;width:100%;height:auto}
 """
 
 COMMON_JS = r"""
+// Nitidez en pantallas con escala (Windows 125 %/150 %, Retina): el lienzo se dibuja
+// con más píxeles reales pero el código sigue usando las medidas lógicas (960 x 430, etc.).
+(function(){
+  const S=Math.min(3,Math.max(2,Math.ceil(window.devicePixelRatio||1)));
+  const P=HTMLCanvasElement.prototype,dW=Object.getOwnPropertyDescriptor(P,'width'),dH=Object.getOwnPropertyDescriptor(P,'height');
+  const gc=P.getContext;
+  function prep(cv){if(cv.__hd)return;cv.__hd=1;const w=dW.get.call(cv),h=dH.get.call(cv);
+    dW.set.call(cv,w*S);dH.set.call(cv,h*S);
+    Object.defineProperty(cv,'width',{get:()=>w,configurable:true});
+    Object.defineProperty(cv,'height',{get:()=>h,configurable:true});}
+  P.getContext=function(t,o){const first=!this.__hd;if(t==='2d')prep(this);const c=gc.call(this,t,o);
+    if(t==='2d'&&first&&c)c.setTransform(S,0,0,S,0,0);return c;};
+})();
 function niceStep(s){const p=Math.pow(10,Math.floor(Math.log10(s)));const f=s/p;return (f<1.5?1:f<3?2:f<7?5:10)*p;}
 function fmtN(v,d){d=d||0;return Number(v).toLocaleString('es-MX',{maximumFractionDigits:d,minimumFractionDigits:d});}
 function tickLabel(v,log){if(log){return v>=1?Number(v).toLocaleString('es-MX'):String(+v.toPrecision(2));}
@@ -89,20 +106,20 @@ function chart(cv,o){
   const px=v=>m.l+(fx(v)-X0)/(X1-X0)*(W-m.l-m.r), py=v=>H-m.b-(fy(v)-Y0)/(Y1-Y0)*(H-m.t-m.b);
   function ticks(a,b,log){const r=[];if(log){for(let e=Math.ceil(a-1e-9);e<=Math.floor(b+1e-9);e++)r.push(Math.pow(10,e));return r;}
     const st=niceStep((b-a)/5);for(let v=Math.ceil(a/st-1e-9)*st;v<=b+1e-9;v+=st)r.push(v);return r;}
-  ctx.font='14px system-ui';ctx.lineWidth=1;
+  ctx.font='14px "Segoe UI",system-ui,sans-serif';ctx.lineWidth=1;
   for(const t of ticks(X0,X1,lx)){const x=px(t);ctx.strokeStyle='#e2e8f0';ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,H-m.b);ctx.stroke();
     ctx.fillStyle='#475569';ctx.textAlign='center';ctx.fillText(tickLabel(t,lx),x,H-m.b+20);}
   for(const t of ticks(Y0,Y1,ly)){const y=py(t);ctx.strokeStyle='#e2e8f0';ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(W-m.r,y);ctx.stroke();
     ctx.fillStyle='#475569';ctx.textAlign='right';ctx.fillText(tickLabel(t,ly),m.l-8,y+5);}
   ctx.strokeStyle='#94a3b8';ctx.lineWidth=1.5;ctx.strokeRect(m.l,m.t,W-m.l-m.r,H-m.t-m.b);
-  ctx.fillStyle='#0f172a';ctx.textAlign='center';ctx.font='15px system-ui';
+  ctx.fillStyle='#0f172a';ctx.textAlign='center';ctx.font='15px "Segoe UI",system-ui,sans-serif';
   if(o.xlabel)ctx.fillText(o.xlabel,(m.l+W-m.r)/2,H-10);
   if(o.ylabel){ctx.save();ctx.translate(18,(m.t+H-m.b)/2);ctx.rotate(-Math.PI/2);ctx.fillText(o.ylabel,0,0);ctx.restore();}
   ctx.save();ctx.beginPath();ctx.rect(m.l,m.t,W-m.l-m.r,H-m.t-m.b);ctx.clip();
   for(const b of (o.bands||[])){ctx.fillStyle=b.color;ctx.fillRect(px(b.x0),m.t,px(b.x1)-px(b.x0),H-m.t-m.b);}
   for(const h of (o.hlines||[])){const y=py(h.y);ctx.setLineDash([6,6]);ctx.strokeStyle='#94a3b8';ctx.lineWidth=1.5;
     ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(W-m.r,y);ctx.stroke();ctx.setLineDash([]);
-    if(h.label){ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.font='13px system-ui';ctx.fillText(h.label,W-m.r-6,y-5);}}
+    if(h.label){ctx.fillStyle='#64748b';ctx.textAlign='right';ctx.font='13px "Segoe UI",system-ui,sans-serif';ctx.fillText(h.label,W-m.r-6,y-5);}}
   for(const s of (o.series||[])){ctx.strokeStyle=s.color;ctx.lineWidth=s.width||3;ctx.beginPath();let f=true;
     for(const [x,y] of s.pts){const X=px(x),Y=py(y);if(f){ctx.moveTo(X,Y);f=false;}else ctx.lineTo(X,Y);}ctx.stroke();}
   for(const v of (o.vlines||[])){const x=px(v.x);ctx.setLineDash([5,5]);ctx.strokeStyle=v.color||'#0f172a';ctx.lineWidth=1.5;
@@ -110,9 +127,9 @@ function chart(cv,o){
   ctx.restore();
   for(const p of (o.markers||[])){const X=px(p.x),Y=py(p.y);ctx.fillStyle=p.color||'#dc2626';ctx.beginPath();ctx.arc(X,Y,8,0,7);ctx.fill();
     ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
-    if(p.label){const der=X>W*0.65;ctx.font='bold 14px system-ui';ctx.textAlign=der?'right':'left';ctx.fillStyle='#0f172a';
+    if(p.label){const der=X>W*0.65;ctx.font='bold 14px "Segoe UI",system-ui,sans-serif';ctx.textAlign=der?'right':'left';ctx.fillStyle='#0f172a';
       ctx.fillText(p.label,X+(der?-12:12),Math.max(m.t+14,Y-12));}}
-  if(o.legend){let x=m.l+12,y=m.t+22;ctx.font='14px system-ui';ctx.textAlign='left';
+  if(o.legend){let x=m.l+12,y=m.t+22;ctx.font='14px "Segoe UI",system-ui,sans-serif';ctx.textAlign='left';
     for(const s of o.series){if(!s.label)continue;ctx.fillStyle=s.color;ctx.fillRect(x,y-8,20,5);ctx.fillStyle='#0f172a';
       ctx.fillText(s.label,x+26,y-2);x+=ctx.measureText(s.label).width+52;}}
 }
@@ -225,7 +242,7 @@ function irA(p){const want=Math.round(N*p/100);let cur=iones.filter(o=>dest(o)==
   while(cur>want&&g++<N){if(!lanzar('A'))break;cur--;}while(cur<want&&g++<2*N){if(!lanzar('C'))break;cur++;}}
 sl.oninput=()=>{setModo('pausa');irA(+sl.value);};
 const ocv=s=>3.0+0.55*(1-Math.exp(-s*8))+0.6*s;
-function T(s,x,y,size,col,al){ctx.fillStyle=col||'#0f172a';ctx.font=(size||18)+'px system-ui';ctx.textAlign=al||'center';ctx.fillText(s,x,y);}
+function T(s,x,y,size,col,al){ctx.fillStyle=col||'#0f172a';ctx.font=(size||18)+'px "Segoe UI",system-ui,sans-serif';ctx.textAlign=al||'center';ctx.fillText(s,x,y);}
 function capas(e,col){ctx.fillStyle=col;const g=(Y1-Y0)/filas;for(let r=0;r<=filas;r++)ctx.fillRect(e.x0,Y0+r*g-5,e.x1-e.x0,10);
   ctx.strokeStyle='#334155';ctx.lineWidth=2;ctx.strokeRect(e.x0,Y0-8,e.x1-e.x0,Y1-Y0+16);}
 function wire(f){const p=[[200,112],[200,40],[760,40],[760,112]],L=[72,560,72];let d=f*704;
@@ -398,7 +415,7 @@ function upd(){const L=Math.pow(10,1+(+Ls.value)/1000*3);
   px.clearRect(0,0,960,150);const r=8+62*(Math.log10(L)-1)/3;
   px.fillStyle='#16a34a';px.globalAlpha=0.25;px.beginPath();px.arc(480,75,r,0,7);px.fill();px.globalAlpha=1;
   px.strokeStyle='#15803d';px.lineWidth=3;px.stroke();
-  px.fillStyle='#0f172a';px.font='15px system-ui';px.textAlign='left';
+  px.fillStyle='#0f172a';px.font='15px "Segoe UI",system-ui,sans-serif';px.textAlign='left';
   px.fillText('Partícula de '+fmtL(L)+': mientras más grande, más lejos tiene que viajar el litio para llegar al centro.',20,145);
   px.strokeStyle='#dc2626';px.lineWidth=2;px.beginPath();px.moveTo(480+r,75);px.lineTo(480,75);px.stroke();
   px.fillStyle='#dc2626';px.fillText('L',480+r/2-4,68);
@@ -441,15 +458,15 @@ function upd(){const s=+si.value,c=+cy.value;
   document.getElementById('kR').textContent=fmtN(q*ret)+' ('+fmtN(100*ret)+' %)';
   px.clearRect(0,0,960,250);const r0=60,r1=r0*Math.cbrt(1+ex/100);
   px.fillStyle='#94a3b8';px.beginPath();px.arc(230,115,r0,0,7);px.fill();
-  px.fillStyle='#0f172a';px.font='16px system-ui';px.textAlign='center';px.fillText('Sin litio',230,240);
-  px.font='40px system-ui';px.fillText('→',440,128);
+  px.fillStyle='#0f172a';px.font='16px "Segoe UI",system-ui,sans-serif';px.textAlign='center';px.fillText('Sin litio',230,240);
+  px.font='40px "Segoe UI",system-ui,sans-serif';px.fillText('→',440,128);
   px.fillStyle=s<20?'#94a3b8':(s<60?'#d97706':'#b45309');px.globalAlpha=0.9;px.beginPath();px.arc(680,115,r1,0,7);px.fill();px.globalAlpha=1;
   px.setLineDash([6,6]);px.strokeStyle='#0f172a';px.lineWidth=2;px.beginPath();px.arc(680,115,r0,0,7);px.stroke();px.setLineDash([]);
   let n=ex<40?0:(ex<100?2:(ex<180?4:7));if(s>15)n+=Math.floor(c/250);n=Math.min(10,n);
   px.strokeStyle='#0f172a';px.lineWidth=3;
   for(let j=0;j<n;j++){const a=rnd(j+1)*2*Math.PI,xa=680+r1*Math.cos(a),ya=115+r1*Math.sin(a),xb=680+r1*0.35*Math.cos(a+0.3),yb=115+r1*0.35*Math.sin(a+0.3);
     px.beginPath();px.moveTo(xa,ya);px.lineTo((xa+xb)/2+8,(ya+yb)/2);px.lineTo(xb,yb);px.stroke();}
-  px.fillStyle='#0f172a';px.font='16px system-ui';px.fillText('Cargada (con litio)',680,240);
+  px.fillStyle='#0f172a';px.font='16px "Segoe UI",system-ui,sans-serif';px.fillText('Cargada (con litio)',680,240);
   const m=document.getElementById('msg');
   if(ex<40){m.className='msg ok';m.innerHTML='<b>Estable.</b> La partícula casi no cambia de tamaño; la batería dura mucho.';}
   else if(ex<100){m.className='msg warn';m.innerHTML='<b>Cuidado.</b> Se infla bastante: la capa protectora (SEI) se rompe y la batería se va desgastando.';}
@@ -526,7 +543,7 @@ function upd(){const q=+p.value;document.getElementById('pT').textContent=q+' %'
   px.clearRect(0,0,960,190);const alto=60+(q-5)*2.2;px.fillStyle='#fef9c3';px.fillRect(0,170-alto,960,alto);
   px.fillStyle='#d4a373';px.fillRect(0,170,960,20);const n=Math.round(900*(1-q/100)*alto/180);
   px.fillStyle='#6b7280';for(let i=0;i<n;i++){px.beginPath();px.arc(rnd(i+1)*960,170-rnd(i+500)*alto,8,0,7);px.fill();}
-  px.fillStyle='#0f172a';px.font='14px system-ui';px.textAlign='left';px.fillText('Lámina de aluminio',10,186);
+  px.fillStyle='#0f172a';px.font='14px "Segoe UI",system-ui,sans-serif';px.textAlign='left';px.fillText('Lámina de aluminio',10,186);
   const m=document.getElementById('msg');
   if(q<20){m.className='msg bad';m.innerHTML='<b>Demasiado aplastado:</b> el electrolito no logra entrar y la batería pierde potencia.';}
   else if(q>40){m.className='msg warn';m.innerHTML='<b>Muy poroso:</b> se desperdicia espacio y cabe menos energía.';}
@@ -566,7 +583,6 @@ pp.oninput=upd;to.oninput=upd;upd();
 # Navegación
 # --------------------------------------------------------------------------
 PASOS = [
-    "Bienvenida",
     "1. Cómo funciona una celda de ion-litio",
     "2. Arma tu batería",
     "3. Dentro del cristal",
@@ -588,7 +604,7 @@ with st.sidebar:
     st.title("Laboratorio de Baterías")
     st.radio("Recorrido", PASOS, key="paso", label_visibility="collapsed")
     i_actual = PASOS.index(st.session_state.paso)
-    st.progress(i_actual / (len(PASOS) - 1), text=f"Avance: {i_actual} de {len(PASOS) - 1}")
+    st.progress((i_actual + 1) / len(PASOS), text=f"Paso {i_actual + 1} de {len(PASOS)}")
     st.divider()
     st.caption("Ingeniería de Materiales · Grupo 05 · 2027-1")
     st.caption("Valadez Colin Sebastián · Silvestre Morales Gael Octavio · "
@@ -609,30 +625,9 @@ def navegacion():
 paso = st.session_state.paso
 
 # --------------------------------------------------------------------------
-# Bienvenida
-# --------------------------------------------------------------------------
-if paso == PASOS[0]:
-    st.title("¿Qué hay dentro de una batería?")
-    st.markdown("#### Un laboratorio para descubrir por qué **los materiales** deciden si una batería dura más, "
-                "carga más rápido, es más segura o más barata.")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        card("Observa", "Mira cómo se mueve el litio dentro de la batería y cómo cambia su porcentaje de carga.")
-    with c2:
-        card("Experimenta", "Mueve los deslizantes: todos los números, dibujos y gráficas cambian al instante.")
-    with c3:
-        card("Ponte a prueba", "Resuelve el reto de elegir la batería correcta y contesta el quiz final.")
-    s1, s2, s3, s4 = st.columns(4)
-    stat(s1, "1.2 TWh", "baterías para autos eléctricos en 2025")
-    stat(s2, "> 40 %", "más barato el LFP que el NMC (2025)")
-    stat(s3, "> 90 %", "eficiencia de una batería de ion-litio")
-    stat(s4, "10 veces", "más capacidad del silicio que del grafito")
-    navegacion()
-
-# --------------------------------------------------------------------------
 # 1. Funcionamiento
 # --------------------------------------------------------------------------
-elif paso == PASOS[1]:
+if paso == PASOS[0]:
     st.title("Cómo funciona una celda de ion-litio")
     st.markdown("Una celda de ion-litio es como un **estacionamiento con dos edificios**: el litio "
                 "se va de un edificio al otro y, mientras viaja, la energía sale por el cable. "
@@ -657,7 +652,7 @@ elif paso == PASOS[1]:
 # --------------------------------------------------------------------------
 # 2. Arma tu batería
 # --------------------------------------------------------------------------
-elif paso == PASOS[2]:
+elif paso == PASOS[1]:
     st.title("Arma tu batería")
     st.markdown("Elige un **cátodo** y un **ánodo** y mira qué tan buena sale tu batería en la vida real.")
     c1, c2 = st.columns(2)
@@ -734,7 +729,7 @@ elif paso == PASOS[2]:
 # --------------------------------------------------------------------------
 # 3. Dentro del cristal
 # --------------------------------------------------------------------------
-elif paso == PASOS[3]:
+elif paso == PASOS[2]:
     st.title("Dentro del cristal")
     st.markdown("Los átomos del cátodo forman un **cristal** con caminos por donde viaja el litio. "
                 "La forma de esos caminos decide qué tan rápido se carga y descarga la batería.")
@@ -794,7 +789,7 @@ elif paso == PASOS[3]:
 # --------------------------------------------------------------------------
 # 4. Silicio
 # --------------------------------------------------------------------------
-elif paso == PASOS[4]:
+elif paso == PASOS[3]:
     st.title("El problema del silicio")
     st.markdown("El silicio guarda **casi 10 veces más** litio que el grafito, pero al llenarse **se infla como un globo**. "
                 "¿Cuánto silicio le pondrías a tu ánodo?")
@@ -806,7 +801,7 @@ elif paso == PASOS[4]:
 # --------------------------------------------------------------------------
 # 5. Reto
 # --------------------------------------------------------------------------
-elif paso == PASOS[5]:
+elif paso == PASOS[4]:
     st.title("Reto: elige la batería correcta")
     st.markdown("Eres ingeniero(a) de materiales. Para cada cliente, elige el **cátodo** que mejor le conviene.")
     RETOS = [
@@ -855,7 +850,7 @@ elif paso == PASOS[5]:
 # --------------------------------------------------------------------------
 # 6. De la mina a tu celular
 # --------------------------------------------------------------------------
-elif paso == PASOS[6]:
+elif paso == PASOS[5]:
     st.title("De la mina a tu celular")
     ETAPAS = [
         ("Extracción", "El litio sale de <b>salmueras</b> (agua salada que se evapora al sol), de <b>roca dura</b> "
@@ -892,7 +887,7 @@ elif paso == PASOS[6]:
 # --------------------------------------------------------------------------
 # 7. Quiz
 # --------------------------------------------------------------------------
-elif paso == PASOS[7]:
+elif paso == PASOS[6]:
     st.title("Quiz final")
     PREG = [
         ("Cuando **usas** la batería, ¿hacia dónde viajan los iones de litio?",
