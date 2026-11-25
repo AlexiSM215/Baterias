@@ -13,5 +13,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Abriendo el laboratorio en el navegador...
-%PY% -m streamlit run Interactivo.py
+start "" cmd /c "timeout /t 6 >nul & start http://localhost:8501"
+%PY% -m streamlit run Interactivo.py --server.headless true
 pause
