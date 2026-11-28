@@ -15,7 +15,7 @@ import streamlit as st
 st.set_page_config(page_title="Laboratorio de Baterías", layout="wide")
 
 # Interruptor de mantenimiento: True = la app solo muestra un aviso; False = funciona normal
-MANTENIMIENTO = True
+MANTENIMIENTO = False
 
 if MANTENIMIENTO:
     st.title("Laboratorio de Baterías")
